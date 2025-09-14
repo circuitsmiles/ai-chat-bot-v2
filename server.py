@@ -1,4 +1,5 @@
 import io
+import speech_recognition as sr
 from flask import Flask, request, jsonify, Response
 from pydub import AudioSegment
 from datetime import datetime
@@ -68,26 +69,57 @@ def get_audio_response():
     """
     Handles a POST request by orchestrating the Gemini API call and
     local audio generation, then streaming the audio back to the client.
+    This endpoint can now handle both JSON payloads and raw audio streams.
     """
     try:
-        data = request.get_json()
-        if not data or 'prompt' not in data:
-            return jsonify({"error": "Invalid JSON or missing 'prompt' key"}), 400
+        # Check the content type to determine the input method
+        if 'application/octet-stream' in request.content_type:
+            # New logic for handling raw audio from the INMP441
+            raw_audio_data = request.data
+            
+            # Use pydub to handle the raw audio data
+            audio_segment = AudioSegment(
+                raw_audio_data,
+                sample_width=2, # 16-bit audio
+                frame_rate=16000,
+                channels=1
+            )
+            
+            # Use SpeechRecognition to transcribe the audio
+            r = sr.Recognizer()
+            audio_data = sr.AudioData(audio_segment.raw_data, 16000, 2)
+            prompt_text = r.recognize_google(audio_data)
 
-        prompt_text = data['prompt']
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Received prompt: {prompt_text}")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Transcribed prompt: {prompt_text}")
 
-        # Get the text response from Gemini
+        elif 'application/json' in request.content_type:
+            # Existing logic for handling a JSON payload
+            data = request.get_json()
+            if not data or 'prompt' not in data:
+                return jsonify({"error": "Invalid JSON or missing 'prompt' key"}), 400
+            prompt_text = data['prompt']
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Received text prompt: {prompt_text}")
+
+        else:
+            return jsonify({"error": "Unsupported Content-Type"}), 415
+
+        # Get the text response from Gemini (this part is the same)
         gemini_text_response = _get_gemini_response(prompt_text)
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Gemini responded with: {gemini_text_response}")
 
-        # Generate the audio data
+        # Generate the audio data (this part is the same)
         audio_data = _generate_audio_data(gemini_text_response)
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Successfully generated local audio. Sending {len(audio_data)} bytes back to client.")
 
         # Return the raw audio bytes directly to the client
         return Response(audio_data, mimetype="audio/L16")
 
+    except sr.UnknownValueError:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Speech Recognition could not understand audio")
+        return jsonify({"error": "Could not understand audio"}), 400
+    except requests.exceptions.HTTPError as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] HTTP Error from Gemini API: {e}")
+        return jsonify({"error": "Gemini API request failed"}), 502
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
