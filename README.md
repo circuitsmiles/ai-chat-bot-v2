@@ -1,10 +1,10 @@
 # **ESP32 Voice Assistant**
 
-This is a comprehensive guide to building a voice assistant using an ESP32 microcontroller, a TFT display, and a Python server for AI integration. The project allows you to speak to the device or select from a list of predefined phrases to generate a spoken response.
+This is a comprehensive guide to building a voice assistant using an ESP32 microcontroller, a TFT display, and a Python server for AI integration. This new version replaces the analog microphone with a digital I2S microphone for higher quality audio capture. The project allows you to speak to the device or select from a list of predefined phrases to generate a spoken response.
 
 ### **Features**
 
-* **Real-time Voice Interaction:** The ESP32 can capture audio input and stream it to a Python server for processing.  
+* **Real-time Voice Interaction:** The ESP32 can capture audio input from a digital I2S microphone and stream it to a Python server for processing.  
 * **Offline Operation:** The project can operate without a microphone by using "Next" and "Previous" buttons to select from a list of pre-written prompts. This allows for quick, repeatable responses and functionality in noisy environments.  
 * **Gemini API Integration:** The Python server uses the Gemini API to transcribe your voice and generate a text response, or to convert a predefined text prompt into a spoken response.  
 * **Text-to-Speech (TTS):** The server uses the gTTS library to convert the Gemini text response into an audio stream.  
@@ -17,7 +17,7 @@ Here is a list of all the hardware components required for this project.
 
 * **Microcontroller:** ESP32 Dev Kit C  
 * **Display:** 1.90" TFT Display (ST7789V)  
-* **Audio Input (Optional):** MAX9814 Electret Microphone Amplifier  
+* **Audio Input:** Digital I2S Microphone (e.g., INMP441)  
 * **Audio Output:** MAX98357A I2S Class-D Amplifier connected to an 8-ohm speaker  
 * **User Input:** Two tactile buttons for "Next" and "Previous" functions.  
 * **Visual Cues:** One red LED and one green LED  
@@ -37,7 +37,9 @@ This guide details the specific pin connections for all components in your voice
 | **I2S Amplifier (MAX98357A)** | DIN | 25 |
 |  | BCLK | 27 |
 |  | LRC | 26 |
-| **I2S Microphone (MAX9814)** | OUT | 35 |
+| **I2S Digital Microphone** | SD (Data) | 32 |
+|  | SCK (BCLK) | 14 |
+|  | WS (LRC) | 15 |
 | **Button 1 (Next)** | \- | 12 |
 | **Button 2 (Previous)** | \- | 14 |
 | **LED (Red)** | \- | 17 |
@@ -52,7 +54,7 @@ The system operates in a series of states managed by the ESP32 firmware:
    * Pressing the **"Next" button** cycles to the next static sentence.  
    * Pressing the **"Previous" button** cycles to the previous static sentence.  
 3. **User Input (Microphone Mode):**  
-   * When the user presses the microphone button, the ESP32 enters the LISTENING state. It captures audio from the microphone via the I2S interface and continuously streams it to a Python server.  
+   * When the user presses the microphone button, the ESP32 enters the LISTENING state. It captures digital audio from the microphone via the I2S interface and continuously streams it to a Python server.  
    * When the button is released, the ESP32 sends a signal to the server to process the recorded audio.  
 4. **Processing:** The screen displays "Thinking..." and the red LED is solid while the server processes the request.  
 5. **Audio Playback:** Once the server has returned a response, the ESP32 enters the PLAYING\_AUDIO state. The screen changes to "Speaking...", the green LED is solid, and the red LED blinks to indicate that the audio is playing.  
